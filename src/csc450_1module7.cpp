@@ -21,11 +21,15 @@
 #include<iostream>
 #include<thread>
 #include<mutex>
+#include<condition_variable>
 
 using namespace std;
 
 // utilizing mutex to sement knowledge learned in class
 mutex mtx;
+// condition variable so i can lock and unlock
+condition_variable cv;
+bool finished = false;
 
 void countUpTo20(){
 	for(int i=1; i <= 20; i++){
@@ -33,22 +37,34 @@ void countUpTo20(){
 		lock_guard<mutex> lock(mtx);
 		cout << "thread 1: " << i << endl;
 	}
+
+	// notify thread 2 of status
+	{
+		lock_guard<mutex> lock(mtx);
+		finished = true;
+	}
+	// wake up thread
+	cv.notify_one();
 }
 void countDownto0(){
+	// wait for finished to be true to unlock
+	unique_lock<mutex> ulock(mtx);
+	cv.wait(ulock, [] {return finished;});
 	for(int j=20; j >= 0; j--){
 
-		lock_guard<mutex> lock(mtx);
+//		lock_guard<mutex> lock(mtx); not needed when use unique lock
 		cout << "thread 2: " << j << endl;
 	}
 }
 
 int main (){
-	cout << "Starting  thread 1" << endl;
+	cout << "Starting  thread 1 " << endl;
 	thread t1(countUpTo20);
-
-	t1.join();
-	cout << "Starting  thread 2" << endl;
 	thread t2(countDownto0);
+
+
+	cout << "Starting  thread 2 " << endl;
+	t1.join();
 	t2.join();
 	cout << " Completed counting up and down" << endl;
 
